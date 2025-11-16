@@ -1,4 +1,4 @@
-<script setup lang="js">
+<script setup>
 import { ref, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import FrontLayout from '@/layouts/FrontLayout.vue';

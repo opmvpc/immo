@@ -1,13 +1,6 @@
-<script setup lang="js">
-import { ref } from 'vue';
-import { Form, router, useForm } from '@inertiajs/vue3';
-import { update, index } from '@/actions/App/Http/Controllers/HouseController';
-import AppLayout from '@/layouts/AppLayout.vue';
+<script setup>
+import { index, update } from '@/actions/App/Http/Controllers/HouseController';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import {
     Card,
     CardContent,
@@ -23,6 +16,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import AppLayout from '@/layouts/AppLayout.vue';
+import { Form, router, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
 
 const props = defineProps({
     house: Object,
@@ -40,13 +39,16 @@ const confirmDeleteImage = (image) => {
 
 const removeImage = () => {
     if (imageToDelete.value) {
-        router.delete(`/houses/${props.house.id}/images/${imageToDelete.value.id}`, {
-            preserveScroll: true,
-            onSuccess: () => {
-                deleteImageDialog.value = false;
-                imageToDelete.value = null;
+        router.delete(
+            `/houses/${props.house.id}/images/${imageToDelete.value.id}`,
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    deleteImageDialog.value = false;
+                    imageToDelete.value = null;
+                },
             },
-        });
+        );
     }
 };
 
@@ -359,7 +361,7 @@ const uploadImages = () => {
                                 multiple
                                 accept="image/*"
                                 @input="handleImageChange"
-                                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                             />
                             <p class="text-sm text-muted-foreground">
                                 Vous pouvez sélectionner plusieurs images (max
@@ -377,9 +379,9 @@ const uploadImages = () => {
                         <div v-if="imageForm.progress" class="space-y-2">
                             <div class="flex justify-between text-sm">
                                 <span>Upload en cours...</span>
-                                <span class="font-medium">{{
-                                    imageForm.progress.percentage
-                                }}%</span>
+                                <span class="font-medium"
+                                    >{{ imageForm.progress.percentage }}%</span
+                                >
                             </div>
                             <div class="h-2 w-full rounded-full bg-secondary">
                                 <div
@@ -393,7 +395,9 @@ const uploadImages = () => {
 
                         <Button
                             type="submit"
-                            :disabled="imageForm.processing || !imageForm.images"
+                            :disabled="
+                                imageForm.processing || !imageForm.images
+                            "
                         >
                             <svg
                                 v-if="imageForm.processing"

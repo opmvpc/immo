@@ -1,4 +1,4 @@
-<script setup lang="js">
+<script setup>
 import { Form } from '@inertiajs/vue3';
 import { store, index } from '@/actions/App/Http/Controllers/HouseController';
 import AppLayout from '@/layouts/AppLayout.vue';

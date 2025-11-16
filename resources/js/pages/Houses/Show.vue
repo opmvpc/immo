@@ -1,10 +1,11 @@
-<script setup lang="js">
-import { ref } from 'vue';
-import { router } from '@inertiajs/vue3';
-import { index, edit, destroy } from '@/actions/App/Http/Controllers/HouseController';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { Button } from '@/components/ui/button';
+<script setup>
+import {
+    destroy,
+    edit,
+    index,
+} from '@/actions/App/Http/Controllers/HouseController';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Card,
     CardContent,
@@ -20,6 +21,9 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import AppLayout from '@/layouts/AppLayout.vue';
+import { router } from '@inertiajs/vue3';
+import { ref } from 'vue';
 
 const props = defineProps({
     house: Object,
@@ -273,7 +277,9 @@ const formatDate = (date) => {
                     <!-- Métadonnées -->
                     <Card>
                         <CardHeader>
-                            <CardTitle class="text-base">Informations</CardTitle>
+                            <CardTitle class="text-base"
+                                >Informations</CardTitle
+                            >
                         </CardHeader>
                         <CardContent class="space-y-2 text-sm">
                             <div class="flex justify-between">
@@ -310,7 +316,9 @@ const formatDate = (date) => {
                     <Card>
                         <CardHeader>
                             <CardTitle>{{ house.title }}</CardTitle>
-                            <CardDescription>{{ house.address }}</CardDescription>
+                            <CardDescription>{{
+                                house.address
+                            }}</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div
@@ -336,8 +344,8 @@ const formatDate = (date) => {
                 <DialogHeader>
                     <DialogTitle>Confirmer la suppression</DialogTitle>
                     <DialogDescription>
-                        Êtes-vous sûr de vouloir supprimer "{{ house.title }}"
-                        ? Cette action est irréversible.
+                        Êtes-vous sûr de vouloir supprimer "{{ house.title }}" ?
+                        Cette action est irréversible.
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
