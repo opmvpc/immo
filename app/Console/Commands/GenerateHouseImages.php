@@ -82,31 +82,12 @@ class GenerateHouseImages extends Command
                 ];
             }
 
-            foreach ($prompts as $index => $prompt) {
-                $this->info('  🖼️  Image '.($index + 1).'...');
-
-                try {
-                    $imageData = $this->generateImage($prompt, $apiKey);
-
-                    if ($imageData) {
-                        // Décoder le base64 et sauvegarder
-                        $this->saveImage($house, $imageData, $index + 1);
-                        $this->line('     ✅ Générée!');
-                    } else {
-                        $this->warn('     ⚠️  Échec de la génération');
-                    }
-                } catch (\Exception $e) {
-                    $this->error('     ❌ Erreur: '.$e->getMessage());
-                }
-
-                $progressBar->advance();
-
-                // Pause pour éviter le rate limiting (1 seconde entre chaque image)
-                sleep(1);
-            }
+            // Générer toutes les images en parallèle pour cette maison
+            $this->generateImagesInParallel($house, $prompts, $apiKey, $progressBar);
         }
 
         $progressBar->finish();
+        $this->newLine();
         $this->newLine(2);
         $this->info('🎉 Génération terminée!');
 
@@ -114,33 +95,146 @@ class GenerateHouseImages extends Command
     }
 
     /**
-     * Génère une image via OpenRouter API.
+     * Génère plusieurs images en parallèle pour une maison.
+     *
+     * @param mixed $progressBar
      */
-    private function generateImage(string $prompt, string $apiKey): ?string
+    private function generateImagesInParallel(House $house, array $prompts, string $apiKey, $progressBar): void
     {
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer '.$apiKey,
-            'Content-Type' => 'application/json',
-        ])
-            ->timeout(60) // 60 secondes timeout
-            ->post('https://openrouter.ai/api/v1/chat/completions', [
-                'model' => 'openai/gpt-5-image-mini',
-                'messages' => [
-                    [
-                        'role' => 'user',
-                        'content' => $prompt,
-                    ],
-                ],
-                'modalities' => ['image', 'text'],
-            ])
-        ;
+        $count = count($prompts);
+        $this->info("  🚀 Génération de {$count} images en parallèle...");
 
-        if (!$response->successful()) {
-            throw new \Exception('API Error: '.$response->body());
+        $failedImages = [];
+
+        // Préparer les requêtes en pool (parallèles)
+        $responses = Http::pool(function ($pool) use ($prompts, $apiKey) {
+            $requests = [];
+
+            foreach ($prompts as $index => $prompt) {
+                $requests[] = $pool->withHeaders([
+                    'Authorization' => 'Bearer '.$apiKey,
+                    'Content-Type' => 'application/json',
+                ])
+                    ->timeout(120) // 120 secondes timeout
+                    ->post('https://openrouter.ai/api/v1/chat/completions', [
+                        'model' => 'openai/gpt-5-image-mini',
+                        'messages' => [
+                            [
+                                'role' => 'user',
+                                'content' => $prompt,
+                            ],
+                        ],
+                        'modalities' => ['image', 'text'],
+                    ])
+                ;
+            }
+
+            return $requests;
+        });
+
+        // Traiter les réponses
+        foreach ($responses as $index => $response) {
+            $progressBar->advance();
+            $imageNumber = $index + 1;
+
+            try {
+                if ($response->successful()) {
+                    $imageData = $this->extractImageFromResponse($response->json());
+
+                    if ($imageData) {
+                        $this->saveImage($house, $imageData, $imageNumber);
+                        $this->line("     ✅ Image {$imageNumber} générée!");
+                    } else {
+                        $this->warn("     ⚠️  Image {$imageNumber}: Pas de données d'image");
+                        $failedImages[$imageNumber] = $prompts[$index];
+                    }
+                } else {
+                    $this->error("     ❌ Image {$imageNumber}: {$response->status()}");
+                    $failedImages[$imageNumber] = $prompts[$index];
+                }
+            } catch (\Exception $e) {
+                $this->error("     ❌ Image {$imageNumber}: {$e->getMessage()}");
+                $failedImages[$imageNumber] = $prompts[$index];
+            }
         }
 
-        $data = $response->json();
+        // Retry les images qui ont échoué
+        if (!empty($failedImages)) {
+            $this->retryFailedImages($house, $failedImages, $apiKey, $progressBar);
+        }
+    }
 
+    /**
+     * Retry la génération des images qui ont échoué.
+     *
+     * @param mixed $progressBar
+     */
+    private function retryFailedImages(House $house, array $failedImages, string $apiKey, $progressBar, int $attempt = 1, int $maxAttempts = 3): void
+    {
+        if ($attempt > $maxAttempts) {
+            $this->error("     💀 Abandon après {$maxAttempts} tentatives pour ".count($failedImages).' image(s)');
+
+            return;
+        }
+
+        $this->newLine();
+        $this->warn("  🔄 Retry tentative {$attempt}/{$maxAttempts} pour ".count($failedImages).' image(s)...');
+
+        $stillFailing = [];
+
+        foreach ($failedImages as $imageNumber => $prompt) {
+            try {
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer '.$apiKey,
+                    'Content-Type' => 'application/json',
+                ])
+                    ->timeout(120)
+                    ->post('https://openrouter.ai/api/v1/chat/completions', [
+                        'model' => 'openai/gpt-5-image-mini',
+                        'messages' => [
+                            [
+                                'role' => 'user',
+                                'content' => $prompt,
+                            ],
+                        ],
+                        'modalities' => ['image', 'text'],
+                    ])
+                ;
+
+                if ($response->successful()) {
+                    $imageData = $this->extractImageFromResponse($response->json());
+
+                    if ($imageData) {
+                        $this->saveImage($house, $imageData, $imageNumber);
+                        $this->line("     ✅ Image {$imageNumber} générée (retry)!");
+                    } else {
+                        $this->warn("     ⚠️  Image {$imageNumber}: Toujours pas de données");
+                        $stillFailing[$imageNumber] = $prompt;
+                    }
+                } else {
+                    $this->error("     ❌ Image {$imageNumber}: Échec retry");
+                    $stillFailing[$imageNumber] = $prompt;
+                }
+            } catch (\Exception $e) {
+                $this->error("     ❌ Image {$imageNumber}: {$e->getMessage()}");
+                $stillFailing[$imageNumber] = $prompt;
+            }
+
+            // Pause courte entre chaque retry
+            sleep(1);
+        }
+
+        // Si encore des échecs, retry récursif
+        if (!empty($stillFailing)) {
+            $this->retryFailedImages($house, $stillFailing, $apiKey, $progressBar, $attempt + 1, $maxAttempts);
+        }
+    }
+
+    /**
+     * Extrait l'image base64 de la réponse API.
+     */
+    private function extractImageFromResponse(array $data): ?string
+    {
         // Extraire l'image de la réponse
         if (isset($data['choices'][0]['message']['images'][0]['image_url']['url'])) {
             $imageUrl = $data['choices'][0]['message']['images'][0]['image_url']['url'];

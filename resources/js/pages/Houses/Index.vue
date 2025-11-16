@@ -31,10 +31,12 @@ import { ref, watch } from 'vue';
 const props = defineProps({
     houses: Object,
     filters: Object,
+    houseTypes: Array,
 });
 
 // État local pour les filtres
 const search = ref(props.filters.search || '');
+const houseTypeId = ref(props.filters.house_type_id || '');
 const minPrice = ref(props.filters.min_price || '');
 const maxPrice = ref(props.filters.max_price || '');
 const bedrooms = ref(props.filters.bedrooms || '');
@@ -53,6 +55,7 @@ const applyFilters = () => {
             index.url(),
             {
                 search: search.value || undefined,
+                house_type_id: houseTypeId.value || undefined,
                 min_price: minPrice.value || undefined,
                 max_price: maxPrice.value || undefined,
                 bedrooms: bedrooms.value || undefined,
@@ -66,7 +69,10 @@ const applyFilters = () => {
     }, 300);
 };
 
-watch([search, minPrice, maxPrice, bedrooms, minSize], applyFilters);
+watch(
+    [search, houseTypeId, minPrice, maxPrice, bedrooms, minSize],
+    applyFilters,
+);
 
 const confirmDelete = (house) => {
     houseToDelete.value = house;
@@ -94,7 +100,7 @@ const formatPrice = (price) => {
 
 <template>
     <AppLayout>
-        <div class="container mx-auto py-8">
+        <div class="container mx-auto px-3 py-8">
             <!-- Header -->
             <div class="mb-8 flex items-center justify-between">
                 <div>
@@ -131,13 +137,28 @@ const formatPrice = (price) => {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
                         <div>
                             <Input
                                 v-model="search"
                                 placeholder="Rechercher..."
                                 type="text"
                             />
+                        </div>
+                        <div>
+                            <select
+                                v-model="houseTypeId"
+                                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <option value="">Tous les types</option>
+                                <option
+                                    v-for="type in houseTypes"
+                                    :key="type.id"
+                                    :value="type.id"
+                                >
+                                    {{ type.name }}
+                                </option>
+                            </select>
                         </div>
                         <div>
                             <Input
@@ -230,7 +251,10 @@ const formatPrice = (price) => {
                                 <div class="text-2xl font-bold text-primary">
                                     {{ formatPrice(house.price) }}
                                 </div>
-                                <div class="flex gap-2">
+                                <div class="flex flex-wrap gap-2">
+                                    <Badge v-if="house.houseType">
+                                        {{ house.houseType.name }}
+                                    </Badge>
                                     <Badge variant="secondary">
                                         {{ house.bedrooms }} ch.
                                     </Badge>

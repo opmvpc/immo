@@ -1,15 +1,14 @@
 <?php
 
+use App\Http\Controllers\FrontController;
 use App\Http\Controllers\HouseController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canRegister' => Features::enabled(Features::registration()),
-    ]);
-})->name('home');
+// Public routes - Frontend vitrine
+Route::get('/', [FrontController::class, 'index'])->name('home');
+Route::get('/biens/{house}', [FrontController::class, 'show'])->name('front.show');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
@@ -30,6 +29,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Routes pour les maisons
     Route::resource('houses', HouseController::class);
+    Route::post('houses/{house}/images', [HouseController::class, 'uploadImages'])
+        ->name('houses.images.store');
     Route::delete('houses/{house}/images/{image}', [HouseController::class, 'deleteImage'])
         ->name('houses.images.destroy');
 });

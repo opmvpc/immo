@@ -13,11 +13,15 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+
+const props = defineProps({
+    houseTypes: Array,
+});
 </script>
 
 <template>
     <AppLayout>
-        <div class="container mx-auto max-w-3xl py-8">
+        <div class="container mx-auto max-w-3xl px-3 py-8">
             <Card>
                 <CardHeader>
                     <CardTitle>Ajouter une maison</CardTitle>
@@ -29,7 +33,7 @@ import {
                 <CardContent>
                     <Form
                         :action="store()"
-                        #default="{ errors, processing, progress }"
+                        #default="{ errors, processing }"
                         class="space-y-6"
                     >
                         <!-- Titre -->
@@ -49,6 +53,34 @@ import {
                                 class="text-sm text-destructive"
                             >
                                 {{ errors.title }}
+                            </p>
+                        </div>
+
+                        <!-- Type de bien -->
+                        <div class="space-y-2">
+                            <Label for="house_type_id">
+                                Type de bien
+                                <span class="text-destructive">*</span>
+                            </Label>
+                            <select
+                                id="house_type_id"
+                                name="house_type_id"
+                                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <option value="">Sélectionnez un type</option>
+                                <option
+                                    v-for="type in houseTypes"
+                                    :key="type.id"
+                                    :value="type.id"
+                                >
+                                    {{ type.name }}
+                                </option>
+                            </select>
+                            <p
+                                v-if="errors.house_type_id"
+                                class="text-sm text-destructive"
+                            >
+                                {{ errors.house_type_id }}
                             </p>
                         </div>
 
@@ -154,45 +186,15 @@ import {
                             </p>
                         </div>
 
-                        <!-- Images -->
-                        <div class="space-y-2">
-                            <Label for="images">Images</Label>
-                            <input
-                                id="images"
-                                type="file"
-                                name="images"
-                                multiple
-                                accept="image/*"
-                                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            />
-                            <p class="text-sm text-muted-foreground">
-                                Vous pouvez sélectionner plusieurs images (max
-                                2MB par image)
+                        <!-- Info images -->
+                        <div
+                            class="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800"
+                        >
+                            <p class="font-medium">📸 Ajout d'images</p>
+                            <p class="mt-1 text-blue-700">
+                                Vous pourrez ajouter des images après la création
+                                de la maison, dans la page d'édition.
                             </p>
-                            <p
-                                v-if="errors['images.0']"
-                                class="text-sm text-destructive"
-                            >
-                                {{ errors['images.0'] }}
-                            </p>
-                        </div>
-
-                        <!-- Progression upload -->
-                        <div v-if="progress" class="space-y-2">
-                            <div class="flex justify-between text-sm">
-                                <span>Upload en cours...</span>
-                                <span class="font-medium"
-                                    >{{ progress.percentage }}%</span
-                                >
-                            </div>
-                            <div class="h-2 w-full rounded-full bg-secondary">
-                                <div
-                                    class="h-2 rounded-full bg-primary transition-all"
-                                    :style="{
-                                        width: `${progress.percentage}%`,
-                                    }"
-                                />
-                            </div>
                         </div>
 
                         <!-- Boutons -->

@@ -1,7 +1,7 @@
 <script setup lang="js">
 import { ref } from 'vue';
-import { Form, router } from '@inertiajs/vue3';
-import { update, index, deleteImage } from '@/actions/App/Http/Controllers/HouseController';
+import { Form, router, useForm } from '@inertiajs/vue3';
+import { update, index } from '@/actions/App/Http/Controllers/HouseController';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,7 @@ import {
 
 const props = defineProps({
     house: Object,
+    houseTypes: Array,
 });
 
 // Dialog de confirmation de suppression d'image
@@ -39,7 +40,7 @@ const confirmDeleteImage = (image) => {
 
 const removeImage = () => {
     if (imageToDelete.value) {
-        router.delete(deleteImage.url(props.house.id, imageToDelete.value.id), {
+        router.delete(`/houses/${props.house.id}/images/${imageToDelete.value.id}`, {
             preserveScroll: true,
             onSuccess: () => {
                 deleteImageDialog.value = false;
@@ -48,11 +49,38 @@ const removeImage = () => {
         });
     }
 };
+
+// Form pour l'upload d'images
+const imageForm = useForm({
+    images: null,
+});
+
+const handleImageChange = (event) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+        // Convertir FileList en Array
+        imageForm.images = Array.from(files);
+    }
+};
+
+const uploadImages = () => {
+    imageForm.post(`/houses/${props.house.id}/images`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            imageForm.reset();
+            // Reset l'input file
+            const input = document.getElementById('images');
+            if (input) {
+                input.value = '';
+            }
+        },
+    });
+};
 </script>
 
 <template>
     <AppLayout>
-        <div class="container mx-auto max-w-3xl py-8">
+        <div class="container mx-auto max-w-3xl px-3 py-8">
             <Card>
                 <CardHeader>
                     <CardTitle>Modifier la maison</CardTitle>
@@ -84,6 +112,34 @@ const removeImage = () => {
                                 class="text-sm text-destructive"
                             >
                                 {{ errors.title }}
+                            </p>
+                        </div>
+
+                        <!-- Type de bien -->
+                        <div class="space-y-2">
+                            <Label for="house_type_id">
+                                Type de bien
+                                <span class="text-destructive">*</span>
+                            </Label>
+                            <select
+                                id="house_type_id"
+                                name="house_type_id"
+                                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <option
+                                    v-for="type in houseTypes"
+                                    :key="type.id"
+                                    :value="type.id"
+                                    :selected="type.id === house.house_type_id"
+                                >
+                                    {{ type.name }}
+                                </option>
+                            </select>
+                            <p
+                                v-if="errors.house_type_id"
+                                class="text-sm text-destructive"
+                            >
+                                {{ errors.house_type_id }}
                             </p>
                         </div>
 
@@ -194,92 +250,6 @@ const removeImage = () => {
                             </p>
                         </div>
 
-                        <!-- Images existantes -->
-                        <div
-                            v-if="house.images && house.images.length > 0"
-                            class="space-y-2"
-                        >
-                            <Label>Images actuelles</Label>
-                            <div class="grid gap-4 md:grid-cols-3">
-                                <div
-                                    v-for="image in house.images"
-                                    :key="image.id"
-                                    class="group relative aspect-video overflow-hidden rounded-lg border"
-                                >
-                                    <img
-                                        :src="image.url"
-                                        :alt="house.title"
-                                        class="h-full w-full object-cover"
-                                    />
-                                    <div
-                                        class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
-                                    >
-                                        <Button
-                                            size="sm"
-                                            variant="destructive"
-                                            @click="confirmDeleteImage(image)"
-                                        >
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                class="h-4 w-4"
-                                                fill="none"
-                                                viewBox="0 0 24 24"
-                                                stroke="currentColor"
-                                            >
-                                                <path
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    stroke-width="2"
-                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                                />
-                                            </svg>
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Ajouter de nouvelles images -->
-                        <div class="space-y-2">
-                            <Label for="images">Ajouter de nouvelles images</Label>
-                            <input
-                                id="images"
-                                type="file"
-                                name="images"
-                                multiple
-                                accept="image/*"
-                                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            />
-                            <p class="text-sm text-muted-foreground">
-                                Vous pouvez sélectionner plusieurs images (max
-                                2MB par image)
-                            </p>
-                            <p
-                                v-if="errors['images.0']"
-                                class="text-sm text-destructive"
-                            >
-                                {{ errors['images.0'] }}
-                            </p>
-                        </div>
-
-                        <!-- Progression upload -->
-                        <div v-if="progress" class="space-y-2">
-                            <div class="flex justify-between text-sm">
-                                <span>Upload en cours...</span>
-                                <span class="font-medium"
-                                    >{{ progress.percentage }}%</span
-                                >
-                            </div>
-                            <div class="h-2 w-full rounded-full bg-secondary">
-                                <div
-                                    class="h-2 rounded-full bg-primary transition-all"
-                                    :style="{
-                                        width: `${progress.percentage}%`,
-                                    }"
-                                />
-                            </div>
-                        </div>
-
                         <!-- Boutons -->
                         <div class="flex gap-4">
                             <Button type="submit" :disabled="processing">
@@ -320,6 +290,139 @@ const removeImage = () => {
                             </Button>
                         </div>
                     </Form>
+                </CardContent>
+            </Card>
+
+            <!-- Gestion des images -->
+            <Card class="mt-6">
+                <CardHeader>
+                    <CardTitle>Images</CardTitle>
+                    <CardDescription>
+                        Gérez les images de votre bien immobilier
+                    </CardDescription>
+                </CardHeader>
+                <CardContent class="space-y-6">
+                    <!-- Images existantes -->
+                    <div
+                        v-if="house.images && house.images.length > 0"
+                        class="space-y-2"
+                    >
+                        <Label>Images actuelles</Label>
+                        <div class="grid gap-4 md:grid-cols-3">
+                            <div
+                                v-for="image in house.images"
+                                :key="image.id"
+                                class="group relative aspect-video overflow-hidden rounded-lg border"
+                            >
+                                <img
+                                    :src="image.url"
+                                    :alt="house.title"
+                                    class="h-full w-full object-cover"
+                                />
+                                <div
+                                    class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
+                                >
+                                    <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        @click="confirmDeleteImage(image)"
+                                    >
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            class="h-4 w-4"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                        >
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="2"
+                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                            />
+                                        </svg>
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formulaire d'upload d'images -->
+                    <form @submit.prevent="uploadImages" class="space-y-4">
+                        <div class="space-y-2">
+                            <Label for="images">
+                                Ajouter de nouvelles images
+                            </Label>
+                            <input
+                                id="images"
+                                type="file"
+                                multiple
+                                accept="image/*"
+                                @input="handleImageChange"
+                                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            />
+                            <p class="text-sm text-muted-foreground">
+                                Vous pouvez sélectionner plusieurs images (max
+                                2MB par image)
+                            </p>
+                            <p
+                                v-if="imageForm.errors['images.0']"
+                                class="text-sm text-destructive"
+                            >
+                                {{ imageForm.errors['images.0'] }}
+                            </p>
+                        </div>
+
+                        <!-- Progression upload -->
+                        <div v-if="imageForm.progress" class="space-y-2">
+                            <div class="flex justify-between text-sm">
+                                <span>Upload en cours...</span>
+                                <span class="font-medium">{{
+                                    imageForm.progress.percentage
+                                }}%</span>
+                            </div>
+                            <div class="h-2 w-full rounded-full bg-secondary">
+                                <div
+                                    class="h-2 rounded-full bg-primary transition-all"
+                                    :style="{
+                                        width: `${imageForm.progress.percentage}%`,
+                                    }"
+                                />
+                            </div>
+                        </div>
+
+                        <Button
+                            type="submit"
+                            :disabled="imageForm.processing || !imageForm.images"
+                        >
+                            <svg
+                                v-if="imageForm.processing"
+                                class="mr-2 h-4 w-4 animate-spin"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                            >
+                                <circle
+                                    class="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    stroke-width="4"
+                                ></circle>
+                                <path
+                                    class="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                ></path>
+                            </svg>
+                            {{
+                                imageForm.processing
+                                    ? 'Upload en cours...'
+                                    : 'Ajouter les images'
+                            }}
+                        </Button>
+                    </form>
                 </CardContent>
             </Card>
         </div>

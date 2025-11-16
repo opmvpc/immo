@@ -8,6 +8,7 @@ use App\Models\House;
 use App\Models\HouseType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -23,6 +24,7 @@ class HouseController extends Controller
             ->where('user_id', auth()->id())
             ->with(['images', 'houseType'])
             ->search($request->get('search'))
+            ->houseType($request->get('house_type_id') ? (int) $request->get('house_type_id') : null)
             ->minPrice($request->get('min_price') ? (float) $request->get('min_price') : null)
             ->maxPrice($request->get('max_price') ? (float) $request->get('max_price') : null)
             ->bedrooms($request->get('bedrooms') ? (int) $request->get('bedrooms') : null)
@@ -32,7 +34,8 @@ class HouseController extends Controller
 
         return Inertia::render('Houses/Index', [
             'houses' => $query->paginate(12)->withQueryString(),
-            'filters' => $request->only(['search', 'min_price', 'max_price', 'bedrooms', 'min_size']),
+            'filters' => $request->only(['search', 'house_type_id', 'min_price', 'max_price', 'bedrooms', 'min_size']),
+            'houseTypes' => HouseType::all(),
         ]);
     }
 
@@ -59,21 +62,12 @@ class HouseController extends Controller
             'bedrooms' => ['required', 'integer', 'min:0'],
             'size' => ['required', 'numeric', 'min:0'],
             'description' => ['nullable', 'string'],
-            'images.*' => ['nullable', 'image', 'max:2048'], // 2MB max par image
         ]);
 
         $house = auth()->user()->houses()->create($validated);
 
-        // Gestion des images
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $image) {
-                $path = $image->store('houses', 'public');
-                $house->images()->create(['path' => $path]);
-            }
-        }
-
-        return to_route('houses.index')
-            ->with('success', 'Maison créée avec succès!')
+        return to_route('houses.edit', $house)
+            ->with('success', 'Maison créée avec succès! Vous pouvez maintenant ajouter des images.')
         ;
     }
 
@@ -82,7 +76,7 @@ class HouseController extends Controller
      */
     public function show(House $house): Response
     {
-        $this->authorize('view', $house);
+        Gate::authorize('view', $house);
 
         $house->load('images', 'user', 'houseType');
 
@@ -96,7 +90,7 @@ class HouseController extends Controller
      */
     public function edit(House $house): Response
     {
-        $this->authorize('update', $house);
+        Gate::authorize('update', $house);
 
         $house->load('images');
 
@@ -111,7 +105,7 @@ class HouseController extends Controller
      */
     public function update(Request $request, House $house): RedirectResponse
     {
-        $this->authorize('update', $house);
+        Gate::authorize('update', $house);
 
         $validated = $request->validate([
             'house_type_id' => ['required', 'exists:house_types,id'],
@@ -121,18 +115,9 @@ class HouseController extends Controller
             'bedrooms' => ['required', 'integer', 'min:0'],
             'size' => ['required', 'numeric', 'min:0'],
             'description' => ['nullable', 'string'],
-            'images.*' => ['nullable', 'image', 'max:2048'],
         ]);
 
         $house->update($validated);
-
-        // Gestion des nouvelles images
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $image) {
-                $path = $image->store('houses', 'public');
-                $house->images()->create(['path' => $path]);
-            }
-        }
 
         return back()->with('success', 'Maison mise à jour avec succès!');
     }
@@ -142,7 +127,7 @@ class HouseController extends Controller
      */
     public function destroy(House $house): RedirectResponse
     {
-        $this->authorize('delete', $house);
+        Gate::authorize('delete', $house);
 
         // Supprimer les images du storage
         foreach ($house->images as $image) {
@@ -157,11 +142,39 @@ class HouseController extends Controller
     }
 
     /**
+     * Upload new images for a house.
+     */
+    public function uploadImages(Request $request, House $house): RedirectResponse
+    {
+        Gate::authorize('update', $house);
+
+        $validated = $request->validate([
+            'images' => ['required', 'array'],
+            'images.*' => ['required', 'image', 'max:2048'], // 2MB max par image
+        ]);
+
+        if ($request->hasFile('images')) {
+            $count = 0;
+            foreach ($request->file('images') as $image) {
+                $path = $image->store('houses', 'public');
+                $house->images()->create([
+                    'path' => $path,
+                ]);
+                ++$count;
+            }
+
+            return back()->with('success', "{$count} image(s) ajoutée(s) avec succès!");
+        }
+
+        return back()->with('error', 'Aucune image n\'a été uploadée.');
+    }
+
+    /**
      * Delete a specific image from a house.
      */
     public function deleteImage(House $house, int $imageId): RedirectResponse
     {
-        $this->authorize('update', $house);
+        Gate::authorize('update', $house);
 
         $image = $house->images()->findOrFail($imageId);
 

@@ -109,4 +109,16 @@ class House extends Model
 
         return $query->where('size', '>=', $size);
     }
+
+    /**
+     * Scope pour filtrer par type de bien.
+     */
+    public function scopeHouseType(Builder $query, ?int $houseTypeId): Builder
+    {
+        if (!$houseTypeId) {
+            return $query;
+        }
+
+        return $query->where('house_type_id', $houseTypeId);
+    }
 }

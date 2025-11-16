@@ -197,24 +197,74 @@ Utilisez les attributs HTML natifs:
 
 ### 5. Upload de Fichiers
 
+**⚠️ IMPORTANT**: Pour les uploads de fichiers, utilisez `useForm()`, PAS le composant `<Form>` avec attributs natifs!
+
+Le composant `<Form>` ne capture PAS automatiquement les fichiers via l'attribut `name`. Il faut utiliser `useForm()`:
+
 ```vue
+<script setup lang="js">
+import { useForm } from '@inertiajs/vue3';
+
+const form = useForm({
+    name: '',
+    avatar: null, // Pour un seul fichier
+    images: null, // Pour plusieurs fichiers
+});
+
+const handleFileChange = (event) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+        // Pour un seul fichier
+        form.avatar = files[0];
+
+        // Pour plusieurs fichiers
+        form.images = Array.from(files);
+    }
+};
+
+const submit = () => {
+    form.post('/users');
+};
+</script>
+
 <template>
-    <Form action="/houses" method="post" #default="{ progress }">
-        <input type="text" name="title" />
+    <form @submit.prevent="submit">
+        <input type="text" v-model="form.name" />
+
+        <!-- Upload d'un seul fichier -->
+        <input
+            type="file"
+            accept="image/*"
+            @input="form.avatar = $event.target.files[0]"
+        />
 
         <!-- Upload multiple d'images -->
-        <input type="file" name="images" multiple accept="image/*" />
+        <input
+            type="file"
+            multiple
+            accept="image/*"
+            @input="handleFileChange"
+        />
 
         <!-- Affichage de la progression -->
-        <div v-if="progress">
-            <progress :value="progress.percentage" max="100" />
-            {{ progress.percentage }}%
+        <div v-if="form.progress">
+            <progress :value="form.progress.percentage" max="100" />
+            {{ form.progress.percentage }}%
         </div>
 
-        <button type="submit">Créer</button>
-    </Form>
+        <button type="submit" :disabled="form.processing">
+            {{ form.processing ? 'Upload...' : 'Créer' }}
+        </button>
+    </form>
 </template>
 ```
+
+**Points clés:**
+
+- Pour les fichiers multiples: `Array.from(files)` pour convertir FileList en Array
+- Pour un seul fichier: `files[0]` suffit
+- Inertia convertit automatiquement en FormData quand il détecte des fichiers
+- Le composant `<Form>` est parfait pour les formulaires sans fichiers!
 
 ### 6. Slot Props du Composant Form
 
@@ -361,6 +411,7 @@ namespace App\Http\Controllers;
 
 use App\Models\House;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -405,7 +456,7 @@ class HouseController extends Controller
     public function update(Request $request, House $house)
     {
         // Vérifier que l'utilisateur possède cette maison
-        $this->authorize('update', $house);
+        Gate::authorize('update', $house);
 
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
@@ -420,7 +471,7 @@ class HouseController extends Controller
 
     public function destroy(House $house)
     {
-        $this->authorize('delete', $house);
+        Gate::authorize('delete', $house);
 
         // Supprimer les images du storage
         foreach ($house->images as $image) {

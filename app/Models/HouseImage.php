@@ -17,6 +17,13 @@ class HouseImage extends Model
         'path',
     ];
 
+    /**
+     * Attributs à inclure dans la serialization JSON
+     */
+    protected $appends = [
+        'url',
+    ];
+
     public function house(): BelongsTo
     {
         return $this->belongsTo(House::class);

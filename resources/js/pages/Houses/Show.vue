@@ -57,7 +57,7 @@ const formatDate = (date) => {
 
 <template>
     <AppLayout>
-        <div class="container mx-auto max-w-5xl py-8">
+        <div class="container mx-auto max-w-5xl px-3 py-8">
             <!-- Header avec actions -->
             <div class="mb-6 flex items-center justify-between">
                 <Button variant="outline" @click="router.visit(index())">
